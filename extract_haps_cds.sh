@@ -23,14 +23,15 @@ outp=$work/hap_cds
 samples=( $(bcftools view -h $vars/Bgland_${scaffs[0]}.filtered.bcf | \
             grep '^#CHROM' | cut -f 10- | tr '\t' '\n') )
 
-# Clear any temporary directories. This prevents some issues with
-# the FAI, when rerunning.
-if [ -e $outp/tmp ]
+# Clear any temporary directories. This prevents some issues
+# with existing FAIs, when rerunning.
+if [ -d $outp/tmp ]
 then
-    rm $outp/tmp/*
-else
-    mkdir $outp/tmp
+    rm -r $outp/tmp
 fi
+# Then create the tmp directory
+mkdir $outp/tmp
+
 
 # First, loop over each individual
 for sample in ${samples[@]}
@@ -89,6 +90,7 @@ do
                 -fi $out_hap_fa \
                 -bed $bed \
                 -nameOnly \
+                -s \
                 -split | \
             fold -w 60 >> $out_cds_fa
         n_cds=$(cat $out_cds_fa | grep -c '^>')
