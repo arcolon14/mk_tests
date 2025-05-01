@@ -12,7 +12,6 @@ genome=$ref/BalGla.fa
 # specific BCFs.
 scaffs=( $(cat ${genome}.fai | cut -f1) )
 # Variants dir
-# vars=$work/variants/ref_indv
 vars=$work/variants/wgs_n6
 # BED file containing the annotations spans
 bed=$ref/BalGla.CDS.bed12
