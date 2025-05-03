@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-import sys, os, gzip, argparse, datetime, re
-from subprocess import run
+import sys, os, gzip, argparse, datetime, re, subprocess
+# from subprocess import run, Popen, PIPE
 from shutil import which
 
 # Some constants
@@ -60,7 +60,7 @@ def check_input_fasta(fasta_f: str) -> None:
         print('    FASTA FAI index found.')
     else:
         print('    FASTA FAI index not found. Generaring it with `samtools faidx`.')
-        run(['samtools', 'faidx', fasta_f], check=True)
+        subprocess.run(['samtools', 'faidx', fasta_f], check=True)
 
 def extract_vcf_samples(vcf_f: str) -> list:
     '''
@@ -72,7 +72,7 @@ def extract_vcf_samples(vcf_f: str) -> list:
     '''
     print('\nExtracting samples from the VCF/BCF header...', flush=True)
     cmd = ['bcftools', 'query', '--list-samples', vcf_f]
-    process = run(cmd, capture_output=True, check=True, text=True)
+    process = subprocess.run(cmd, capture_output=True, check=True, text=True)
     stdout = process.stdout
     samples = stdout.strip('\n').split('\n')
     print(f'    Found {len(samples):,} from the input VCF/BCF.', flush=True)
@@ -300,24 +300,40 @@ def extract_cds(sample: str, haplotype: int, cds: CodingExon,
         var_seq: (str) Extracted sequence with individual variants
     '''
     assert isinstance(cds, CodingExon)
-    var_seq = None
-    # Prepare the samtools/bcftools command
-    cmd_str = f'samtools faidx {genome_f} \"{cds.chrom}:{cds.start}-{cds.stop}\" \| '
-    cmd_str += f'bcftools consensus --samples {sample} --haplotype {haplotype} --missing \"N\" '
+    var_seq = ''
+    # 1. Prepare and run the samtools command to extract the reference
+    samt_cmd = ['samtools', 'faidx', 
+                f'{genome_f}', f'{cds.chrom}:{cds.start}-{cds.stop}']
+    # print(samt_cmd)
+    samt_proc = subprocess.Popen(samt_cmd,
+                                 stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE,
+                                 text=True)
+
+    # 2. Prepare and run the BCFtools command to add the variants on 
+    # the extracted sxequence.
+    bcft_cmd = ['bcftools', 'consensus', '--missing', 'N',
+                '--samples', f'{sample}',
+                '--haplotype', f'{haplotype}']\
     # Add conditional arguments
     if SNPS_ONLY:
-        cmd_str += '--exclude \"TYPE!=\'snp\'\" '
-    cmd_str += f'{vcf_f}'
-    cmd = cmd_str.split(' ')
-    print(cmd_str)
-    # Run this command
-    # TODO: This is failing
-    process = run(cmd, capture_output=True, check=True, text=True)
-    stdout = process.stdout
-    print(stdout)
-
+        bcft_cmd.append(['--exclude', 'TYPE=\'snp\''])
+    bcft_cmd.append(f'{vcf_f}')
+    # print(bcft_cmd)
+    bcft_proc = subprocess.Popen(bcft_cmd,
+                                 stdin=samt_proc.stdout,
+                                 stdout=subprocess.PIPE,
+                                 stderr=subprocess.PIPE,
+                                 text=True)
+    # Process the stdout
+    output, errors = bcft_proc.communicate()
+    # Extract the stdout as a sequence
+    stdout_l = output.strip('\n').split('\n')
+    for element in stdout_l:
+        if not element.startswith('>'):
+            var_seq += element
+    var_seq = var_seq.upper()
     return var_seq
-
 
 def process_all_samples(samples: list, annotations: dict, genome_f: str, 
                         vcf_f: str, out_dir: str='.') -> None:
