@@ -70,7 +70,7 @@ def check_input_vcf(vcf_f: str) -> None:
         None
     '''
     print('\nChecking input VCF/BCF and index...', flush=True)
-    if os.path.exists(f'{vcf_f}.fai'):
+    if os.path.exists(f'{vcf_f}.csi'):
         print('    VCF index found.')
     else:
         print('    VCF index not found. Generaring it with `bcftools index`.')
@@ -347,7 +347,6 @@ def extract_cds(sample: str, haplotype: int, cds: CodingExon,
         if not element.startswith('>'):
             var_seq += element
     var_seq = var_seq.upper()
-    # print(output, errors)
     return var_seq
 
 def process_all_samples(samples: list, annotations: dict, genome_f: str, 
