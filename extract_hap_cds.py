@@ -6,6 +6,7 @@ from shutil import which
 # Some constants
 PROG = sys.argv[0].split('/')[-1]
 SNPS_ONLY = False
+FA_LINE_WIDTH = 60
 
 def parse_args(prog=PROG):
     '''Set and verify command line options.'''
@@ -240,7 +241,8 @@ def rev_comp(sequence: str) -> str:
     return rev_seq
 
 def process_sample(sample: str, annotations: dict, genome_f: str, 
-                        vcf_f: str, out_dir: str='.', ploidy:int=2) -> None:
+                        vcf_f: str, out_dir: str='.', ploidy:int=2,
+                        fa_line_width=FA_LINE_WIDTH) -> None:
     '''
     Process the data for a single sampleusing the extracted 
     annotations and variant file.
@@ -269,7 +271,12 @@ def process_sample(sample: str, annotations: dict, genome_f: str,
                 cds_seq = process_transcript(sample, hap, transcript,
                                              genome_f, vcf_f)
                 # Save to the file
-                fh.write(f'{cds_seq}')
+                fh.write(f'>{trans_id}\n')
+                # Wrap the sequence lines up to `fa_line_width` characters
+                start = None
+                for start in range(0, len(cds_seq), fa_line_width):
+                    seq_line = cds_seq[start:(start+fa_line_width)]
+                    fh.write(f'{seq_line}\n')
 
                 if i > 10:
                     break
@@ -295,8 +302,11 @@ def process_transcript(sample: str, haplotype: int, transcript: Transcript,
         assert isinstance(cds, CodingExon)
         # extract a CDS
         var_seq = extract_cds(sample, haplotype, cds, genome_f, vcf_f)
+        # Append to the main sequence
+        cds_seq += var_seq
     # Process if reverse complimented
-
+    if transcript.strand == '-':
+        cds_seq = rev_comp(cds_seq)
     return cds_seq
 
 def extract_cds(sample: str, haplotype: int, cds: CodingExon, 
