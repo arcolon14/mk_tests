@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import sys, os, gzip, argparse, datetime, re, subprocess
-# from subprocess import run, Popen, PIPE
 from shutil import which
+from multiprocessing import Pool
 
 # Some constants
 PROG = sys.argv[0].split('/')[-1]
@@ -19,6 +19,8 @@ def parse_args(prog=PROG):
                    help='(str) Path to variants in VCF/BCF format.')
     p.add_argument('-o', '--out-dir', required=False, default='.',
                    help='(str) Path to output directory [default=.].')
+    p.add_argument('-t', '--threads', required=False, type=int, default=1,
+                   help='(int) Number of threads to run in parallel sections of code [default=1].')
     p.add_argument('--snps-only', action='store_true',
                    help='Filter the input variants to only keep SNPs.')
     # Check inputs
@@ -27,6 +29,7 @@ def parse_args(prog=PROG):
     assert os.path.exists(args.gff)
     assert os.path.exists(args.vcf)
     args.out_dir = args.out_dir.rstrip('/')
+    assert args.threads >= 1
     # Set some constants
     SNPS_ONLY = args.snps_only
     return args
@@ -240,9 +243,9 @@ def rev_comp(sequence: str) -> str:
     rev_seq = ''.join(rev[::-1])
     return rev_seq
 
-def process_sample(sample: str, annotations: dict, genome_f: str, 
-                        vcf_f: str, out_dir: str='.', ploidy:int=2,
-                        fa_line_width=FA_LINE_WIDTH) -> None:
+def process_sample(sample: str, haplotype: int,  annotations: dict,
+                   genome_f: str, vcf_f: str, out_dir: str='.',
+                   fa_line_width=FA_LINE_WIDTH) -> None:
     '''
     Process the data for a single sampleusing the extracted 
     annotations and variant file.
@@ -255,27 +258,23 @@ def process_sample(sample: str, annotations: dict, genome_f: str,
     Returns:
         None
     '''
-    print(f'    Working on {sample}')
-    # Loop over the possible haplotypes
-    for i in range(0, ploidy):
-        hap = i+1
-        print(f'        {sample}_{hap}')
-        # Prepare the output
-        ouf_fa = f'{out_dir}/{sample}_{hap}.CDS.fa'
-        with open(ouf_fa, 'w') as fh:
-            # Loop over the annotations
-            for j, trans_id in enumerate(annotations):
-                # Select the target transcript
-                transcript = annotations[trans_id]
-                # Process that transcript
-                cds_seq = process_transcript(sample, hap, transcript,
-                                             genome_f, vcf_f)
-                # Save to the file
-                fh.write(f'>{trans_id}\n')
-                # Wrap the sequence lines up to `fa_line_width` characters
-                for start in range(0, len(cds_seq), fa_line_width):
-                    seq_line = cds_seq[start:(start+fa_line_width)]
-                    fh.write(f'{seq_line}\n')
+    print(f'    Working on {sample}, haplotype {haplotype}')
+    # Prepare the output
+    ouf_fa = f'{out_dir}/{sample}_{haplotype}.CDS.fa'
+    with open(ouf_fa, 'w') as fh:
+        # Loop over the annotations
+        for j, trans_id in enumerate(annotations):
+            # Select the target transcript
+            transcript = annotations[trans_id]
+            # Process that transcript
+            cds_seq = process_transcript(sample, haplotype, transcript,
+                                            genome_f, vcf_f)
+            # Save to the file
+            fh.write(f'>{trans_id}\n')
+            # Wrap the sequence lines up to `fa_line_width` characters
+            for start in range(0, len(cds_seq), fa_line_width):
+                seq_line = cds_seq[start:(start+fa_line_width)]
+                fh.write(f'{seq_line}\n')
 
 def process_transcript(sample: str, haplotype: int, transcript: Transcript, 
                        genome_f: str, vcf_f: str) -> str:
@@ -373,8 +372,8 @@ def extract_cds(sample: str, haplotype: int, cds: CodingExon,
     var_seq = var_seq.upper()
     return var_seq
 
-def process_all_samples(samples: list, annotations: dict, genome_f: str, 
-                        vcf_f: str, out_dir: str='.') -> None:
+def process_all_samples(samples: list, annotations: dict, 
+                        genome_f: str, vcf_f: str, out_dir: str='.', threads:int=1, ploidy:int=2) -> None:
     '''
     Process the data for all the samples using the extracted annotations
     and variant file.
@@ -388,9 +387,30 @@ def process_all_samples(samples: list, annotations: dict, genome_f: str,
         None
     '''
     print(f'\nProcessing samples...', flush=True)
-    # Iterate over samples
-    for sample in samples:
-        process_sample(sample, annotations, genome_f, vcf_f, out_dir)
+    # When working with a single thread...
+    if threads == 1:
+        # Iterate over samples one at a time
+        for sample in samples:
+            for h in range(0, ploidy):
+                hap = h+1
+                process_sample(sample, hap, annotations, genome_f, 
+                               vcf_f, out_dir)
+    else:
+        # When working multithreaded...
+        # First, adjust the number of threads if needed
+        if threads > len(samples)*ploidy:
+            threads = len(samples)*ploidy
+        # Call `process_sample` multithreaded
+        with Pool(threads) as pool:
+            args = list()
+            for sample in samples:
+                for h in range(0, ploidy):
+                    hap = h+1
+                    tast_args = (sample, hap, annotations, 
+                                 genome_f, vcf_f, out_dir)
+                    args.append(tast_args)
+            pool.starmap(process_sample, args)
+
 
 def main():
     print(f'{PROG} started on {date()} {time()}.')
@@ -407,7 +427,7 @@ def main():
     # Extract the CDS annotations from the GFF
     annotations = load_cds_from_gff(args.gff)
     # Process all samples
-    process_all_samples(samples, annotations, args.genome, args.vcf, args.out_dir)
+    process_all_samples(samples, annotations, args.genome, args.vcf, args.out_dir, args.threads)
     # Done!
     print(f'\n{PROG} finished on {date()} {time()}.')
 
