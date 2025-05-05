@@ -62,6 +62,20 @@ def check_input_fasta(fasta_f: str) -> None:
         print('    FASTA FAI index not found. Generaring it with `samtools faidx`.')
         subprocess.run(['samtools', 'faidx', fasta_f], check=True)
 
+def check_input_vcf(vcf_f: str) -> None:
+    '''Check input VCF/BCF and confirm that it is indexed.
+    Args:
+        vcf_f : (str) Path to varints file in VCF or BCF format.
+    Returns:
+        None
+    '''
+    print('\nChecking input VCF/BCF and index...', flush=True)
+    if os.path.exists(f'{vcf_f}.fai'):
+        print('    VCF index found.')
+    else:
+        print('    VCF index not found. Generaring it with `bcftools index`.')
+        subprocess.run(['bcftools', 'index', vcf_f], check=True)
+
 def extract_vcf_samples(vcf_f: str) -> list:
     '''
     Extract the samples from the VCF header.
@@ -333,6 +347,7 @@ def extract_cds(sample: str, haplotype: int, cds: CodingExon,
         if not element.startswith('>'):
             var_seq += element
     var_seq = var_seq.upper()
+    # print(output, errors)
     return var_seq
 
 def process_all_samples(samples: list, annotations: dict, genome_f: str, 
@@ -364,6 +379,8 @@ def main():
     check_executables()
     # Check the input fasta
     check_input_fasta(args.genome)
+    # Check the input VCF/BCF
+    check_input_vcf(args.vcf)
     # Extract the samples from the VCF file
     samples = extract_vcf_samples(args.vcf)
     # Extract the CDS annotations from the GFF
