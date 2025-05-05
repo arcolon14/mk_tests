@@ -21,16 +21,18 @@ transcripts when necessary.
 ```
 $ python3 extract_hap_cds.py -h
   usage: extract_hap_cds.py [-h] -g GENOME -f GFF -v VCF [-o OUT_DIR] 
-                            [--snps-only]
+                            [-t THREADS] [--snps-only]
 
   options:
     -h, --help            show this help message and exit
-    -g GENOME, --genome GENOME
-                          (str) Path to genome in FASTA format.
-    -f GFF, --gff GFF     (str) Path to the annotation in FASTA format.
-    -v VCF, --vcf VCF     (str) Path to variants in VCF/BCF format.
-    -o OUT_DIR, --out-dir OUT_DIR
+    -g, --genome GENOME   (str) Path to genome in FASTA format.
+    -f, --gff GFF         (str) Path to the annotation in FASTA format.
+    -v, --vcf VCF         (str) Path to variants in VCF/BCF format.
+    -o, --out-dir OUT_DIR
                           (str) Path to output directory [default=.].
+    -t, --threads THREADS
+                          (int) Number of threads to run in parallel sections 
+                          of code [default=1].
     --snps-only           Filter the input variants to only keep SNPs.
 ```
 
