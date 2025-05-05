@@ -295,7 +295,6 @@ def process_transcript(sample: str, haplotype: int, transcript: Transcript,
         assert isinstance(cds, CodingExon)
         # extract a CDS
         var_seq = extract_cds(sample, haplotype, cds, genome_f, vcf_f)
-
     # Process if reverse complimented
 
     return cds_seq
@@ -323,6 +322,13 @@ def extract_cds(sample: str, haplotype: int, cds: CodingExon,
                                  stdout=subprocess.PIPE,
                                  stderr=subprocess.PIPE,
                                  text=True)
+    # Check output
+    # This sometimes returns None (not 0) on success, so adding the
+    # additional check to be sure.
+    if samt_proc.returncode is not None and samt_proc.returncode != 0:
+        print(samt_proc.returncode)
+        samt_str = ' '.join(samt_cmd)
+        sys.exit(f"Error: `{samt_str}` exited with non-zero status.")
 
     # 2. Prepare and run the BCFtools command to add the variants on 
     # the extracted sxequence.
@@ -341,11 +347,19 @@ def extract_cds(sample: str, haplotype: int, cds: CodingExon,
                                  text=True)
     # Process the stdout
     output, errors = bcft_proc.communicate()
+    # Check output
+    if bcft_proc.returncode != 0:
+        bcft_str = ' '.join(bcft_cmd)
+        print(errors)
+        sys.exit(f"Error: `{bcft_str}` exited with non-zero status.")
     # Extract the stdout as a sequence
     stdout_l = output.strip('\n').split('\n')
     for element in stdout_l:
         if not element.startswith('>'):
             var_seq += element
+    # Make sure that sequence of non-zero length is returned
+    if len(var_seq) < 1:
+        sys.exit(f"Error: {sample}_{haplotype} consensus for {cds.chrom}:{cds.start}-{cds.stop} returned a sequence of length 0.")
     var_seq = var_seq.upper()
     return var_seq
 
