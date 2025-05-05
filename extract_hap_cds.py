@@ -264,7 +264,7 @@ def process_sample(sample: str, annotations: dict, genome_f: str,
         ouf_fa = f'{out_dir}/{sample}_{hap}.CDS.fa'
         with open(ouf_fa, 'w') as fh:
             # Loop over the annotations
-            for i, trans_id in enumerate(annotations):
+            for j, trans_id in enumerate(annotations):
                 # Select the target transcript
                 transcript = annotations[trans_id]
                 # Process that transcript
@@ -273,13 +273,9 @@ def process_sample(sample: str, annotations: dict, genome_f: str,
                 # Save to the file
                 fh.write(f'>{trans_id}\n')
                 # Wrap the sequence lines up to `fa_line_width` characters
-                start = None
                 for start in range(0, len(cds_seq), fa_line_width):
                     seq_line = cds_seq[start:(start+fa_line_width)]
                     fh.write(f'{seq_line}\n')
-
-                if i > 10:
-                    break
 
 def process_transcript(sample: str, haplotype: int, transcript: Transcript, 
                        genome_f: str, vcf_f: str) -> str:
@@ -341,10 +337,15 @@ def extract_cds(sample: str, haplotype: int, cds: CodingExon,
         sys.exit(f"Error: `{samt_str}` exited with non-zero status.")
 
     # 2. Prepare and run the BCFtools command to add the variants on 
-    # the extracted sxequence.
-    bcft_cmd = ['bcftools', 'consensus', '--missing', 'N',
+    # the extracted sequence.
+    # Note: The `regions-overlap 0` is added to prevent issues with 
+    # indels overlapping the boundaries of the target sequences, as
+    # defined by the BCFtools documentation.
+    bcft_cmd = ['bcftools', 'consensus', 
+                '--missing', 'N',
+                '--regions-overlap', '0',
                 '--samples', f'{sample}',
-                '--haplotype', f'{haplotype}']\
+                '--haplotype', f'{haplotype}']
     # Add conditional arguments
     if SNPS_ONLY:
         bcft_cmd.append(['--exclude', 'TYPE=\'snp\''])
@@ -359,9 +360,8 @@ def extract_cds(sample: str, haplotype: int, cds: CodingExon,
     output, errors = bcft_proc.communicate()
     # Check output
     if bcft_proc.returncode != 0:
-        bcft_str = ' '.join(bcft_cmd)
-        print(errors)
-        sys.exit(f"Error: `{bcft_str}` exited with non-zero status.")
+        cmd_str = ' '.join(samt_cmd) + ' | ' + ' '.join(bcft_cmd)
+        sys.exit(f"Error: `{cmd_str}` exited with non-zero status.\n{errors}")
     # Extract the stdout as a sequence
     stdout_l = output.strip('\n').split('\n')
     for element in stdout_l:
@@ -389,10 +389,8 @@ def process_all_samples(samples: list, annotations: dict, genome_f: str,
     '''
     print(f'\nProcessing samples...', flush=True)
     # Iterate over samples
-    for sample in samples[0:1]:
+    for sample in samples:
         process_sample(sample, annotations, genome_f, vcf_f, out_dir)
-
-
 
 def main():
     print(f'{PROG} started on {date()} {time()}.')
