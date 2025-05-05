@@ -75,9 +75,9 @@ def check_input_vcf(vcf_f: str) -> None:
     '''
     print('\nChecking input VCF/BCF and index...', flush=True)
     if os.path.exists(f'{vcf_f}.csi'):
-        print('    VCF index found.')
+        print('    VCF/BCF CSI index found.')
     else:
-        print('    VCF index not found. Generaring it with `bcftools index`.')
+        print('    VCF/BCF CSI index not found. Generaring it with `bcftools index`.')
         subprocess.run(['bcftools', 'index', vcf_f], check=True)
 
 def extract_vcf_samples(vcf_f: str) -> list:
@@ -243,14 +243,15 @@ def rev_comp(sequence: str) -> str:
     rev_seq = ''.join(rev[::-1])
     return rev_seq
 
-def process_sample(sample: str, haplotype: int,  annotations: dict,
+def process_sample(sample: str, haplotype: int, annotations: dict,
                    genome_f: str, vcf_f: str, out_dir: str='.',
                    fa_line_width=FA_LINE_WIDTH) -> None:
     '''
-    Process the data for a single sampleusing the extracted 
+    Process the data for a single sample using the extracted 
     annotations and variant file.
     Args:
         sample: (str) current sample to process
+        haplotype: (int) which haplotype to extract variants for
         annotations: (dict) dictionary of transcript and cds objects
         genome_f: (str) Path to genome in FASTA format
         vcf_f: (str) Path to variants in VCF/BCF format
@@ -268,7 +269,7 @@ def process_sample(sample: str, haplotype: int,  annotations: dict,
             transcript = annotations[trans_id]
             # Process that transcript
             cds_seq = process_transcript(sample, haplotype, transcript,
-                                            genome_f, vcf_f)
+                                         genome_f, vcf_f)
             # Save to the file
             fh.write(f'>{trans_id}\n')
             # Wrap the sequence lines up to `fa_line_width` characters
@@ -295,7 +296,7 @@ def process_transcript(sample: str, haplotype: int, transcript: Transcript,
     # Loop over the individual CDSs in the transcript
     for cds in transcript.exons_l:
         assert isinstance(cds, CodingExon)
-        # extract a CDS
+        # Extract a CDS with the variants for that haplotype
         var_seq = extract_cds(sample, haplotype, cds, genome_f, vcf_f)
         # Append to the main sequence
         cds_seq += var_seq
@@ -305,7 +306,7 @@ def process_transcript(sample: str, haplotype: int, transcript: Transcript,
     return cds_seq
 
 def extract_cds(sample: str, haplotype: int, cds: CodingExon, 
-                       genome_f: str, vcf_f: str) -> str:
+                genome_f: str, vcf_f: str) -> str:
     '''
     Process the the coding sequences and variants for a single transcript.
     Args:
@@ -322,7 +323,6 @@ def extract_cds(sample: str, haplotype: int, cds: CodingExon,
     # 1. Prepare and run the samtools command to extract the reference
     samt_cmd = ['samtools', 'faidx', 
                 f'{genome_f}', f'{cds.chrom}:{cds.start}-{cds.stop}']
-    # print(samt_cmd)
     samt_proc = subprocess.Popen(samt_cmd,
                                  stdout=subprocess.PIPE,
                                  stderr=subprocess.PIPE,
@@ -349,7 +349,6 @@ def extract_cds(sample: str, haplotype: int, cds: CodingExon,
     if SNPS_ONLY:
         bcft_cmd.append(['--exclude', 'TYPE=\'snp\''])
     bcft_cmd.append(f'{vcf_f}')
-    # print(bcft_cmd)
     bcft_proc = subprocess.Popen(bcft_cmd,
                                  stdin=samt_proc.stdout,
                                  stdout=subprocess.PIPE,
@@ -373,7 +372,8 @@ def extract_cds(sample: str, haplotype: int, cds: CodingExon,
     return var_seq
 
 def process_all_samples(samples: list, annotations: dict, 
-                        genome_f: str, vcf_f: str, out_dir: str='.', threads:int=1, ploidy:int=2) -> None:
+                        genome_f: str, vcf_f: str, out_dir: str='.', 
+                        threads:int=1, ploidy:int=2) -> None:
     '''
     Process the data for all the samples using the extracted annotations
     and variant file.
@@ -383,6 +383,8 @@ def process_all_samples(samples: list, annotations: dict,
         genome_f: (str) Path to genome in FASTA format
         vcf_f: (str) Path to variants in VCF/BCF format
         out_dir: (str) Path to directory where to store outputs [default=.]
+        threads: (str) Number of threads to run samples in parallel [default=1]
+        ploidy: (str) How many haplotypes to extract per sample [default=2]
     Returns:
         None
     '''
@@ -393,8 +395,8 @@ def process_all_samples(samples: list, annotations: dict,
         for sample in samples:
             for h in range(0, ploidy):
                 hap = h+1
-                process_sample(sample, hap, annotations, genome_f, 
-                               vcf_f, out_dir)
+                process_sample(sample, hap, annotations, 
+                               genome_f, vcf_f, out_dir)
     else:
         # When working multithreaded...
         # First, adjust the number of threads if needed
@@ -406,11 +408,10 @@ def process_all_samples(samples: list, annotations: dict,
             for sample in samples:
                 for h in range(0, ploidy):
                     hap = h+1
-                    tast_args = (sample, hap, annotations, 
+                    task_args = (sample, hap, annotations, 
                                  genome_f, vcf_f, out_dir)
-                    args.append(tast_args)
+                    args.append(task_args)
             pool.starmap(process_sample, args)
-
 
 def main():
     print(f'{PROG} started on {date()} {time()}.')
