@@ -93,7 +93,7 @@ def extract_vcf_samples(vcf_f: str) -> list:
     process = subprocess.run(cmd, capture_output=True, check=True, text=True)
     stdout = process.stdout
     samples = stdout.strip('\n').split('\n')
-    print(f'    Found {len(samples):,} from the input VCF/BCF.', flush=True)
+    print(f'    Found {len(samples):,} samples from the input VCF/BCF.', flush=True)
     return samples
 
 class Transcript:
