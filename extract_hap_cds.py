@@ -271,7 +271,7 @@ def process_sample(sample: str, haplotype: int, annotations: dict,
             cds_seq = process_transcript(sample, haplotype, transcript,
                                          genome_f, vcf_f)
             # Save to the file
-            fh.write(f'>{trans_id}\n')
+            fh.write(f'>{trans_id}_{sample}_{haplotype}\n')
             # Wrap the sequence lines up to `fa_line_width` characters
             for start in range(0, len(cds_seq), fa_line_width):
                 seq_line = cds_seq[start:(start+fa_line_width)]
