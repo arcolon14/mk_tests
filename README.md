@@ -18,7 +18,7 @@ The program `extract_hap_cds.py` extracts the per-sample coding sequences using
 CDS entry in the GFF individually, and merges them into the corresponding 
 transcripts when necessary.
 
-```
+```sh
 $ python3 extract_hap_cds.py -h
   usage: extract_hap_cds.py [-h] -g GENOME -f GFF -v VCF [-o OUT_DIR] 
                             [-t THREADS] [--snps-only]
@@ -34,6 +34,46 @@ $ python3 extract_hap_cds.py -h
                           (int) Number of threads to run in parallel sections 
                           of code [default=1].
     --snps-only           Filter the input variants to only keep SNPs.
+```
+
+## Calculate the codong positions of each coding site
+
+The program `position_in_codon.py` parses an annotation file (GFF) and for 
+each coding site, calculate the the codon number (i.e., which codon in amino 
+acid sequence the site belongs to) and codon position (i.e., 1st, 2nd, or 3rd 
+position of the codon).
+
+```sh
+$ python3 position_in_codon.py -h
+  position_in_codon.py started on 2025-05-08 23:47:18.
+  usage: position_in_codon.py [-h] -g GFF [-o OUT_DIR]
+
+  Parse an annotation file (GFF) and for each coding site, calculate the the codon
+  number (i.e., which codon in amino acid sequence the site belongs to) and codon
+  position (i.e., 1st, 2nd, or 3rd position of the codon).
+  
+  options:
+    -h, --help            show this help message and exit
+    -g GFF, --gff GFF     (str) Path to the annotation in GFF format.
+    -o OUT_DIR, --out-dir OUT_DIR
+                          (str) Path to output directory [default=.].
+```
+
+The script generates the output table, `position_in_codons.tsv`. 
+Output example:
+
+```sh
+#Chrom  Bp     Transcript  CDS    CodonNum  PosInCodon
+chr01   53103  mrna-1      cds-1  1         1
+chr01   53104  mrna-1      cds-1  1         2
+chr01   53105  mrna-1      cds-1  1         3
+chr01   53106  mrna-1      cds-1  2         1
+chr01   53107  mrna-1      cds-1  2         2
+chr01   53108  mrna-1      cds-1  2         3
+chr01   53109  mrna-1      cds-1  3         1
+chr01   53110  mrna-1      cds-1  3         2
+chr01   53111  mrna-1      cds-1  3         3
+...
 ```
 
 ## Authors

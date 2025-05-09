@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 import sys, os, datetime, argparse, re
 PROG = sys.argv[0].split('/')[-1]
+DESC = """Parse an annotation file (GFF) and for each coding site, \
+calculate the the codon number (i.e., which codon in amino acid \
+sequence the site belongs to) and codon position (i.e., 1st, 2nd, \
+or 3rd position of the codon)."""
 
-def parse_args(prog=PROG):
+
+def parse_args():
     '''Set and verify command line options.'''
-    p = argparse.ArgumentParser()
+    p = argparse.ArgumentParser(prog=PROG, description=DESC)
     p.add_argument('-g', '--gff', required=True, 
                    help='(str) Path to the annotation in GFF format.')
     p.add_argument('-o', '--out-dir', required=False, default='.',
@@ -156,7 +161,7 @@ def calculate_codon_positions(annotations:dict, outdir:str='.') -> None:
     Returns:
         None
     '''
-    print('\nCalculating the position in the exon for each site in the CDS...')
+    print('\nCalculating the position in the codon for each site in the CDS...')
     total_sites = 0
     # Prepare output
     with open(f'{outdir}/position_in_codons.tsv', 'w') as fh:
