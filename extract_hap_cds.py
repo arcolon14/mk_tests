@@ -14,7 +14,7 @@ def parse_args(prog=PROG):
     p.add_argument('-g', '--genome', required=True, 
                    help='(str) Path to genome in FASTA format.')
     p.add_argument('-f', '--gff', required=True, 
-                   help='(str) Path to the annotation in FASTA format.')
+                   help='(str) Path to the annotation in GFF format.')
     p.add_argument('-v', '--vcf', required=True, 
                    help='(str) Path to variants in VCF/BCF format.')
     p.add_argument('-o', '--out-dir', required=False, default='.',
