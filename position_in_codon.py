@@ -164,12 +164,14 @@ def calculate_codon_positions(annotations:dict, outdir:str='.') -> None:
         # Loop over the transcripts and CDSs
         for trans_id in annotations:
             transcript = annotations[trans_id]
+            strand = transcript.strand
             codon_num = 0
             for cds in transcript.exons_l:
                 # Loop over the range of the CDS
                 for i, pos in enumerate(range(cds.start-1, cds.stop)):
+                    # TODO: How to handle transcripts in the reverse strand?
+                    # if strand == '-': do...
                     codon_pos = ((i-cds.phase)%3)+1
-                    # print(pos+1, i, codon_pos, cds.phase, cds.id)
                     if codon_pos == 1:
                         codon_num+=1
                     row = f'{transcript.chrom}\t{pos+1}\t{transcript.id}\t{cds.id}\t{codon_num}\t{codon_pos}\n'
