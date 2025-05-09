@@ -164,19 +164,38 @@ def calculate_codon_positions(annotations:dict, outdir:str='.') -> None:
         # Loop over the transcripts and CDSs
         for trans_id in annotations:
             transcript = annotations[trans_id]
-            strand = transcript.strand
             codon_num = 0
-            for cds in transcript.exons_l:
-                # Loop over the range of the CDS
-                for i, pos in enumerate(range(cds.start-1, cds.stop)):
-                    # TODO: How to handle transcripts in the reverse strand?
-                    # if strand == '-': do...
-                    codon_pos = ((i-cds.phase)%3)+1
-                    if codon_pos == 1:
-                        codon_num+=1
-                    row = f'{transcript.chrom}\t{pos+1}\t{transcript.id}\t{cds.id}\t{codon_num}\t{codon_pos}\n'
-                    fh.write(row)
-                    total_sites +=1
+            # Handle genes in positive strand
+            if transcript.strand == '+':
+                for cds in transcript.exons_l:
+                    # Loop over the range of the CDS
+                    for i, pos in enumerate(range(cds.start-1, cds.stop)):
+                        codon_pos = ((i-cds.phase)%3)+1
+                        if codon_pos == 1:
+                            codon_num+=1
+                        row = f'{transcript.chrom}\t{pos+1}\t{transcript.id}\t{cds.id}\t{codon_num}\t{codon_pos}\n'
+                        fh.write(row)
+                        total_sites +=1
+            # Handle genes in reverse strand
+            else:
+                # Temporary data for sorting the output
+                rows = dict()
+                # In this case, we want to traverse the exons in the opposite order
+                for cds in transcript.exons_l[::-1]:
+                    # We also navigate the positions in the reverse order
+                    for i, pos in enumerate(range(cds.stop, cds.start-1, -1)):
+                        codon_pos = ((i-cds.phase)%3)+1
+                        if codon_pos == 1:
+                            codon_num+=1
+                        row = f'{transcript.chrom}\t{pos}\t{transcript.id}\t{cds.id}\t{codon_num}\t{codon_pos}\n'
+                        # Don't save this yes, so they can be in the right order in the file
+                        # Instead, save in the temporary dictionary
+                        rows[pos] = row
+                        total_sites +=1
+                # Once all the negative strand positions have been parsed, then save in the right order
+                for pos in sorted(rows.keys()):
+                    fh.write(rows[pos])
+
     print(f'    Calculated codon positions for {total_sites:,} coding sites.', flush=True)
 
 def main():
