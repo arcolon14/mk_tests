@@ -300,7 +300,10 @@ def process_all_orthologs(scos:list, outgroup_id:str,
         os.mkdir(split_dir)
     # Process all the data
     with open(f'{out_dir}/rb_mkTest_out.tsv', 'w') as fh:
-        fh.write('orthologID\tfocalGene\talnLength\taaFix\taaPoly\tsilFix\tsilPoly\tfetPval\NotesFailure\n')
+        header = ['orthologID', 'focalGene', 'alnLength', 'aaFix', 'aaPoly',
+                  'silFix', 'silPoly', 'fetPval', 'Notes']
+        header = '\t'.join(header)
+        fh.write(f'{header}\n')
         # Process the individual orthologs
         for i, sco in enumerate(sorted(scos)):
             # Report a tally of progress
