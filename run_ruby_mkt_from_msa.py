@@ -313,15 +313,10 @@ def process_all_orthologs(scos:list, outgroup_id:str,
             results = process_ortholog(sco, outgroup_id, 
                                        msa_dir, exe_dir,
                                        split_dir)
-            # # Skip orthologs that have not passed
-            # if not results.passed:
-            #     continue
+            if results.whyfail == 'passed':
+                n_processed+=1
             fh.write(results.write_row())
-            n_processed+=1
-
-            # if i>10:
-            #     break
-    print(f'    \nProcessed results for {n_processed:,} single-copy orthologs.', flush=True)
+    print(f'    \nSuccesfully processed results for {n_processed:,} single-copy orthologs.', flush=True)
 
 def main():
     print(f'{PROG} started on {date()} {time()}.')
