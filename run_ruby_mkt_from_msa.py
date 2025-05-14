@@ -336,7 +336,7 @@ def process_all_orthologs(scos:list, outgroup_id:str,
         for i, sco in enumerate(sorted(scos)):
             # Report a tally of progress
             if i%1000==0 and i>0:
-                print(f'    Processing the {i:,}th ortholog.')
+                print(f'    Processing the {i:,}th ortholog.', flush=True)
             # Process a single ortholog
             result = process_ortholog(sco, outgroup_id, 
                                        msa_dir, exe_dir,
