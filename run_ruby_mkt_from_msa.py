@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import sys, os, argparse, subprocess
+from statistics import mean
+from statistics import stdev
 from datetime import datetime
 from warnings import warn
 PROG = sys.argv[0].split('/')[-1]
@@ -67,11 +69,16 @@ class mkTestResults:
     '''
     Store the results for an mkTest run.
     '''
-    def __init__(self, ortho_id:str,
-                 gene_id:str='NA', aln_len:int=-1,
-                 aaFix:int=-1, aaPoly:int=-1,
-                 silFix:int=-1, silPoly:int=-1,
-                 p_val:float=-1.0, 
+    def __init__(self,
+                 ortho_id:str,
+                 gene_id:str='NA',
+                 aln_len:int=-1,
+                 aaFix:int=-1,
+                 aaPoly:int=-1,
+                 silFix:int=-1,
+                 silPoly:int=-1,
+                 p_val:float=-1.0,
+                 len_dist=list(),
                  frameshifts:bool=False,
                  passed:bool=True,
                  failure_reason:str='passed'):
@@ -83,13 +90,26 @@ class mkTestResults:
         self.silFix  = silFix
         self.silPoly = silPoly
         self.pVal    = p_val
+        self.lenDist = len_dist
         self.fshifts = frameshifts
         self.passed  = passed
         self.whyfail = failure_reason
     def __str__(self):
-        return f'{self.orthoID}\t{self.geneID}\t{self.alnLen}\t{self.aaFix}\t{self.aaPoly}\t{self.silFix}\t{self.silPoly}\t{self.pVal}\t{self.whyfail}'
+        if len(self.lenDist) > 0:
+            mean_len = mean(self.lenDist)
+            sd_len = stdev(self.lenDist)
+        else:
+            mean_len = -1
+            sd_len = -1
+        return f'{self.orthoID}\t{self.geneID}\t{self.alnLen}\t{mean_len}\t{sd_len}\t{self.aaFix}\t{self.aaPoly}\t{self.silFix}\t{self.silPoly}\t{self.pVal}\t{self.whyfail}'
     def write_row(self):
-        return f'{self.orthoID}\t{self.geneID}\t{self.alnLen}\t{self.aaFix}\t{self.aaPoly}\t{self.silFix}\t{self.silPoly}\t{self.pVal:0.8g}\t{self.whyfail}\n'
+        if len(self.lenDist) > 0:
+            mean_len = mean(self.lenDist)
+            sd_len = stdev(self.lenDist)
+        else:
+            mean_len = -1
+            sd_len = -1
+        return f'{self.orthoID}\t{self.geneID}\t{self.alnLen}\t{mean_len:0.3f}\t{sd_len:0.3f}\t{self.aaFix}\t{self.aaPoly}\t{self.silFix}\t{self.silPoly}\t{self.pVal:0.8g}\t{self.whyfail}\n'
 
 def read_msa(msa_fa_f:str)->dict:
     '''
@@ -224,7 +244,7 @@ def split_msa(sco:str, aligned_sequences:dict, outgroup_id:str, out_dir:str, fa_
 
 def process_ortholog(sco:str, outgroup_id:str, 
                      msa_dir:str, exe_dir:str,
-                     out_dir:str)->list:
+                     out_dir:str)->mkTestResults:
     '''
     Process a target single-copy ortholog: Split alignment, run MKtest, 
     and parse output.
@@ -235,47 +255,53 @@ def process_ortholog(sco:str, outgroup_id:str,
         exe_dir: (str) Path to directory contain the ruby executable.
         out_dir: (str) Output directory.
     Returns:
-        results: (list) List of the mkTest script results.
+        result: (mkTestResults) Object of the mkTest script results.
     '''
-    results = mkTestResults(sco)
+    result = mkTestResults(sco)
     # 1. Read the corresponding MSA
     msa_fa = f'{msa_dir}/{sco}_NT.fa'
     # Some orthologs have no valid MSA, skip them.
     # TODO: Why? MACSE was unable to generate one, it seems.
     if not os.path.exists(msa_fa):
-        results.passed = False
-        results.whyfail = 'noMSA'
-        return results
+        result.passed = False
+        result.whyfail = 'noMSA'
+        return result
     aligned_seq = read_msa(msa_fa)
     # 2. Inspect the sequence:
     #    Get the target gene and alignment length.
     #    Look for frameshifts and other issues
-    for seq_id in aligned_seq:
+    # For the lengths of the aligned seqs
+    result.lenDist = [ 0 for _ in range(len(aligned_seq)) ]
+    for i, seq_id in enumerate(aligned_seq):
         sequence = aligned_seq[seq_id]
+        for s in sequence:
+            # Tally the non-gap length
+            if s.upper() in 'ACGTN':
+                result.lenDist[i] += 1
+            # Check for frameshifts
+            elif s.upper() == '!':
+                result.fshifts = True
         # If not the outgroup, extract length and 
         # gene information
         if outgroup_id not in aligned_seq:
-            results.alnLen = len(sequence)
-            # Note: this works for our default inpuit, but 
+            result.alnLen = len(sequence)
+            # Note: this works for our default input, but 
             # will likely fail for other cases.
             # TODO: Make more robust?
             gene_ID = seq_id.split('_')[0]
             if not gene_ID.startswith('mrna'):
                 warn(f'Warning: Non-default FASTA headers found for ortholog {sco}.')
-            results.geneID = gene_ID
-        # Check for the presence of frameshifts in all sequences.
-        if '!' in sequence:
-            results.fshifts = True
+            result.geneID = gene_ID
     # Skip sequences with frameshifts
-    if results.fshifts:
-        results.passed = False
-        results.whyfail = 'frameshifts'
-        return results
+    if result.fshifts:
+        result.passed = False
+        result.whyfail = 'frameshifts'
+        return result
     # 3. Split the MSAs
     ingroup_msa, outgroup_msa = split_msa(sco, aligned_seq, outgroup_id, out_dir)
     # 4. Run the mkTest.rb command.
-    results = run_mktest_cmd(results, ingroup_msa, outgroup_msa, exe_dir)
-    return results
+    result = run_mktest_cmd(result, ingroup_msa, outgroup_msa, exe_dir)
+    return result
 
 def process_all_orthologs(scos:list, outgroup_id:str, 
                           msa_dir:str, exe_dir:str, 
@@ -300,8 +326,10 @@ def process_all_orthologs(scos:list, outgroup_id:str,
         os.mkdir(split_dir)
     # Process all the data
     with open(f'{out_dir}/rb_mkTest_out.tsv', 'w') as fh:
-        header = ['orthologID', 'focalGene', 'alnLength', 'aaFix', 'aaPoly',
-                  'silFix', 'silPoly', 'fetPval', 'Notes']
+        header = ['orthologID', 'focalGene', 'alnLen',
+                  'avgAlnLenNoGaps', 'sdAlnLenNoGaps',
+                  'aaFix', 'aaPoly', 'silFix', 'silPoly',
+                  'fetPval', 'notes']
         header = '\t'.join(header)
         fh.write(f'{header}\n')
         # Process the individual orthologs
@@ -310,12 +338,12 @@ def process_all_orthologs(scos:list, outgroup_id:str,
             if i%1000==0 and i>0:
                 print(f'    Processing the {i:,}th ortholog.')
             # Process a single ortholog
-            results = process_ortholog(sco, outgroup_id, 
+            result = process_ortholog(sco, outgroup_id, 
                                        msa_dir, exe_dir,
                                        split_dir)
-            if results.whyfail == 'passed':
+            if result.whyfail == 'passed':
                 n_processed+=1
-            fh.write(results.write_row())
+            fh.write(result.write_row())
     print(f'    \nSuccesfully processed results for {n_processed:,} single-copy orthologs.', flush=True)
 
 def main():
