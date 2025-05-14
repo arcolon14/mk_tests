@@ -107,7 +107,7 @@ $ python3 run_ruby_mkt_from_msa.py -h
   run_ruby_mkt_from_msa.py started on 2025-05-12 21:01:15.
   usage: run_ruby_mkt_from_msa.py [-h] -l SCO_LIST -m MSA_DIR -g OUTGROUP_ID [-e EXE_DIR] [-o OUT_DIR]
 
-  Run AK's custom Ruby script for MK-Test anslysis.
+  Run a custom Ruby script for MK-Test anslysis.
 
   options:
     -h, --help            show this help message and exit
@@ -126,16 +126,16 @@ $ python3 run_ruby_mkt_from_msa.py -h
 ### Output example
 
 ```sh
-orthologID     focalGene   alnLength  aaFix  aaPoly  silFix  silPoly  fetPval  Notes
-N0.HOG0000111  mrna-18589  789        139    0       70      0        1        passed
-N0.HOG0000139  mrna-17553  909        -1     -1      -1      -1       -1       frameshifts
-N0.HOG0000208  mrna-8936   1332       -1     -1      -1      -1       -1       frameshifts
-N0.HOG0000209  mrna-16468  1356       -1     -1      -1      -1       -1       frameshifts
-N0.HOG0000231  mrna-18370  1131       0      0       20      30       1        passed
-N0.HOG0000323  mrna-17302  1065       209    64      134     41       1        passed
-N0.HOG0000328  mrna-7643   651        52     15      32      21       0.0469   passed
-N0.HOG0000482  mrna-17932  780        -1     -1      -1      -1       -1       frameshifts
-N0.HOG0000489  mrna-13195  822        -1     -1      -1      -1       -1       frameshifts
+orthologID     focalGene   alnLen  avgAlnLenNoGaps  sdAlnLenNoGaps  aaFix  aaPoly  silFix  silPoly  fetPval  notes
+N0.HOG0000111  mrna-18589  789     685.400          17.041          139    0       70      0        1        passed
+N0.HOG0000139  mrna-17553  909     859.267          192.063         -1     -1      -1      -1       -1       frameshifts
+N0.HOG0000208  mrna-8936   1332    1257.000         186.121         -1     -1      -1      -1       -1       frameshifts
+N0.HOG0000209  mrna-16468  1356    1313.867         159.328         -1     -1      -1      -1       -1       frameshifts
+N0.HOG0000231  mrna-18370  1131    1131.000         0.000           0      0       20      30       1        passed
+N0.HOG0000323  mrna-17302  1065    995.200          16.606          209    64      134     41       1        passed
+N0.HOG0000328  mrna-7643   651     551.600          29.890          52     15      32      21       0.0469   passed
+N0.HOG0000482  mrna-17932  780     749.000          120.062         -1     -1      -1      -1       -1       frameshifts
+N0.HOG0000489  mrna-13195  822     781.533          17.025          -1     -1      -1      -1       -1       frameshifts
 ```
 
 TODO: Add details on columns.
