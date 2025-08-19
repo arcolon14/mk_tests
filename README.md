@@ -11,9 +11,10 @@ of focal individuals and an outgroup. Using this:
 1. Obtain all the per-sample coding sequences (with genotyped variants)
 for all individuals (`extract_hap_cds.py`)
 2. Use `orthofinder` to cluster all the coding-sequence and finding single-
-copy orthologs for focal and outgroup individuals (script TDB).
+copy orthologs for focal and outgroup individuals (`run_orthofinder.sh`).
 3. Perform a codon-aware re-alignment of the single-copy orthologs
-inferred from `orthofinder` using `macse` (script TBD).
+inferred from `orthofinder` using `macse`. Process the alignments using
+`seqtk` to extract the outgroup vs ingroup sequences (`macse_align_and_process.sh`).
 4. For each single-copy ortholog MSA, process the sequences and run a custom
 McDoland-Kreitman test (`run_ruby_mkt_from_msa.py`).
 
@@ -42,53 +43,19 @@ $ python3 extract_hap_cds.py -h
     --snps-only           Filter the input variants to only keep SNPs.
 ```
 
-## Calculate the codong positions of each coding site
-
-The program `position_in_codon.py` parses an annotation file (GFF) and for 
-each coding site, calculate the the codon number (i.e., which codon in amino 
-acid sequence the site belongs to) and codon position (i.e., 1st, 2nd, or 3rd 
-position of the codon).
-
-```sh
-$ python3 position_in_codon.py -h
-  position_in_codon.py started on 2025-05-08 23:47:18.
-  usage: position_in_codon.py [-h] -g GFF [-o OUT_DIR]
-
-  Parse an annotation file (GFF) and for each coding site, calculate the the codon
-  number (i.e., which codon in amino acid sequence the site belongs to) and codon
-  position (i.e., 1st, 2nd, or 3rd position of the codon).
-  
-  options:
-    -h, --help            show this help message and exit
-    -g GFF, --gff GFF     (str) Path to the annotation in GFF format.
-    -o OUT_DIR, --out-dir OUT_DIR
-                          (str) Path to output directory [default=.].
-```
-
-The script generates the output table, `position_in_codons.tsv`. 
-Output example:
-
-```sh
-#Chrom  Bp     Transcript  CDS    CodonNum  PosInCodon
-chr01   53103  mrna-1      cds-1  1         1
-chr01   53104  mrna-1      cds-1  1         2
-chr01   53105  mrna-1      cds-1  1         3
-chr01   53106  mrna-1      cds-1  2         1
-chr01   53107  mrna-1      cds-1  2         2
-chr01   53108  mrna-1      cds-1  2         3
-chr01   53109  mrna-1      cds-1  3         1
-chr01   53110  mrna-1      cds-1  3         2
-chr01   53111  mrna-1      cds-1  3         3
-...
-```
-
 ## Run `orthofinder`
 
-TODO:
+The script `run_orthofinder` takes the extracted CDS FASTA files for each 
+sample haplotype and find orthogroups using `orthofinder`. Primarily, this is
+to match the outgroup sequences with those of the ingroup (which should already
+be assigned to the same gene ID). It runs `orthofinder` in DNA mode (`-d`).
 
 ## Run `macse`
 
-TODO 
+The script `macse_align_and_process.sh` loops over all the orthogroup IDs
+and aligns their sequences using `macse`. After alignment, all the alignments
+are processed using `seqtk` (and other simple `BASH` commands) to split the
+ingroup vs outgroup sequences.
 
 ## Script to automate the mkTest
 
@@ -99,8 +66,6 @@ perform a McDonald-Kreitman test.
 
 The source of the ruby script is <https://github.com/andrewkern/mkTest>,
 and it is a required dependency.
-
-TODO: Describe options in more detail.
 
 ```sh
 $ python3 run_ruby_mkt_from_msa.py -h
@@ -139,6 +104,48 @@ N0.HOG0000489  mrna-13195  822     781.533          17.025          -1     -1   
 ```
 
 TODO: Add details on columns.
+
+## Other
+
+### Calculate the codong positions of each coding site
+
+The program `position_in_codon.py` parses an annotation file (GFF) and for 
+each coding site, calculate the the codon number (i.e., which codon in amino 
+acid sequence the site belongs to) and codon position (i.e., 1st, 2nd, or 3rd 
+position of the codon).
+
+```sh
+$ python3 position_in_codon.py -h
+  position_in_codon.py started on 2025-05-08 23:47:18.
+  usage: position_in_codon.py [-h] -g GFF [-o OUT_DIR]
+
+  Parse an annotation file (GFF) and for each coding site, calculate the the codon
+  number (i.e., which codon in amino acid sequence the site belongs to) and codon
+  position (i.e., 1st, 2nd, or 3rd position of the codon).
+  
+  options:
+    -h, --help            show this help message and exit
+    -g GFF, --gff GFF     (str) Path to the annotation in GFF format.
+    -o OUT_DIR, --out-dir OUT_DIR
+                          (str) Path to output directory [default=.].
+```
+
+The script generates the output table, `position_in_codons.tsv`. 
+Output example:
+
+```sh
+#Chrom  Bp     Transcript  CDS    CodonNum  PosInCodon
+chr01   53103  mrna-1      cds-1  1         1
+chr01   53104  mrna-1      cds-1  1         2
+chr01   53105  mrna-1      cds-1  1         3
+chr01   53106  mrna-1      cds-1  2         1
+chr01   53107  mrna-1      cds-1  2         2
+chr01   53108  mrna-1      cds-1  2         3
+chr01   53109  mrna-1      cds-1  3         1
+chr01   53110  mrna-1      cds-1  3         2
+chr01   53111  mrna-1      cds-1  3         3
+...
+```
 
 ## Authors
 
