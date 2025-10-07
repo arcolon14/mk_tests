@@ -10,7 +10,7 @@ DESC = """Run AK's custom Ruby script for MK-Test anslysis."""
 def parse_args():
     '''Set and verify command line options.'''
     p = argparse.ArgumentParser(prog=PROG, description=DESC)
-    p.add_argument('-l', '--sco-list', required=True, 
+    p.add_argument('-l', '--sco-list', required=True,
                    help='(str) Path to the file containing list of single-copy orthologs.')
     p.add_argument('-m', '--msa-dir', required=True,
                    help='(str) Path to directory containing MSA files.')
@@ -55,7 +55,7 @@ def load_sco_list(sco_list_f:str)->list:
             line = line.strip('\n')
             if len(line) == 0:
                 continue
-            if not line.startswith('N0.HOG'):
+            if not line.startswith('N0.HOG') or not line.startswith('OG'):
                 sys.exit('Error: Single-copy ortholog file must contain list of orthofinder N0 orthogroups.')
             scos.append(line)
     # Make checks for duplicate elements
@@ -143,7 +143,7 @@ def read_msa(msa_fa_f:str)->dict:
 
 def run_mktest_cmd(result:mkTestResults, ingroup_msa:str, outgroup_msa:str, exe_dir:str)->list:
     '''
-    Run the `ruby mkTest.rb` command using the target ingroup and 
+    Run the `ruby mkTest.rb` command using the target ingroup and
     outgroup alignments.
     Args:
         result: (mkTestResults) Object to store mkTest results.
@@ -281,11 +281,11 @@ def process_ortholog(sco:str, outgroup_id:str,
             # Check for frameshifts
             elif s.upper() == '!':
                 result.fshifts = True
-        # If not the outgroup, extract length and 
+        # If not the outgroup, extract length and
         # gene information
         if outgroup_id not in aligned_seq:
             result.alnLen = len(sequence)
-            # Note: this works for our default input, but 
+            # Note: this works for our default input, but
             # will likely fail for other cases.
             # TODO: Make more robust?
             gene_ID = seq_id.split('_')[0]
@@ -303,11 +303,11 @@ def process_ortholog(sco:str, outgroup_id:str,
     result = run_mktest_cmd(result, ingroup_msa, outgroup_msa, exe_dir)
     return result
 
-def process_all_orthologs(scos:list, outgroup_id:str, 
-                          msa_dir:str, exe_dir:str, 
+def process_all_orthologs(scos:list, outgroup_id:str,
+                          msa_dir:str, exe_dir:str,
                           out_dir:str)->None:
     '''
-    Process all single-copy orthologs: Split alignment, run MKtest, 
+    Process all single-copy orthologs: Split alignment, run MKtest,
     and parse output.
     Args:
         scos: (list) list of single copy ortholog IDs.
@@ -338,7 +338,7 @@ def process_all_orthologs(scos:list, outgroup_id:str,
             if i%1000==0 and i>0:
                 print(f'    Processing the {i:,}th ortholog.', flush=True)
             # Process a single ortholog
-            result = process_ortholog(sco, outgroup_id, 
+            result = process_ortholog(sco, outgroup_id,
                                        msa_dir, exe_dir,
                                        split_dir)
             if result.whyfail == 'passed':
