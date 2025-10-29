@@ -55,9 +55,8 @@ def load_sco_list(sco_list_f:str)->list:
             line = line.strip('\n')
             if len(line) == 0:
                 continue
-            if not line.startswith('N0.HOG') or not line.startswith('OG'):
-                sys.exit('Error: Single-copy ortholog file must contain list of orthofinder N0 orthogroups.')
-            scos.append(line)
+            if line.startswith('N0.HOG') or line.startswith('OG'):
+                scos.append(line)
     # Make checks for duplicate elements
     scos = set(scos)
     scos = list(scos)
@@ -242,11 +241,11 @@ def split_msa(sco:str, aligned_sequences:dict, outgroup_id:str, out_dir:str, fa_
     outgroup_fh.close()
     return ingroup_msa, outgroup_msa
 
-def process_ortholog(sco:str, outgroup_id:str, 
+def process_ortholog(sco:str, outgroup_id:str,
                      msa_dir:str, exe_dir:str,
                      out_dir:str)->mkTestResults:
     '''
-    Process a target single-copy ortholog: Split alignment, run MKtest, 
+    Process a target single-copy ortholog: Split alignment, run MKtest,
     and parse output.
     Args:
         sco: (str) Single copy ortholog ID.
@@ -259,9 +258,8 @@ def process_ortholog(sco:str, outgroup_id:str,
     '''
     result = mkTestResults(sco)
     # 1. Read the corresponding MSA
-    msa_fa = f'{msa_dir}/{sco}_NT.fa'
+    msa_fa = f'{msa_dir}/{sco}.fa'
     # Some orthologs have no valid MSA, skip them.
-    # TODO: Why? MACSE was unable to generate one, it seems.
     if not os.path.exists(msa_fa):
         result.passed = False
         result.whyfail = 'noMSA'
@@ -290,7 +288,7 @@ def process_ortholog(sco:str, outgroup_id:str,
             # TODO: Make more robust?
             gene_ID = seq_id.split('_')[0]
             if not gene_ID.startswith('mrna'):
-                warn(f'Warning: Non-default FASTA headers found for ortholog {sco}.')
+                warn(f'Warning: gene ID not found for ortholog {sco}.')
             result.geneID = gene_ID
     # Skip sequences with frameshifts
     if result.fshifts:
