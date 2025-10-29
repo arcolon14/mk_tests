@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-import sys, os, argparse, subprocess
+import sys
+import os
+import argparse
+import subprocess
 from statistics import mean
 from statistics import stdev
 from datetime import datetime
@@ -48,7 +51,7 @@ def load_sco_list(sco_list_f:str)->list:
     '''
     scos = list()
     print('\nParsing list of single-copy orthologs...', flush=True)
-    with open(sco_list_f) as fh:
+    with open(sco_list_f, encoding='utf-8') as fh:
         for line in fh:
             if line.startswith('#'):
                 continue
@@ -77,7 +80,6 @@ class mkTestResults:
                  silFix:int=-1,
                  silPoly:int=-1,
                  p_val:float=-1.0,
-                 len_dist=list(),
                  frameshifts:bool=False,
                  passed:bool=True,
                  failure_reason:str='passed'):
@@ -89,7 +91,7 @@ class mkTestResults:
         self.silFix  = silFix
         self.silPoly = silPoly
         self.pVal    = p_val
-        self.lenDist = len_dist
+        self.lenDist = []
         self.fshifts = frameshifts
         self.passed  = passed
         self.whyfail = failure_reason
@@ -102,6 +104,7 @@ class mkTestResults:
             sd_len = -1
         return f'{self.orthoID}\t{self.geneID}\t{self.alnLen}\t{mean_len}\t{sd_len}\t{self.aaFix}\t{self.aaPoly}\t{self.silFix}\t{self.silPoly}\t{self.pVal}\t{self.whyfail}'
     def write_row(self):
+        '''Process the class value into a row of the output file.'''
         if len(self.lenDist) > 0:
             mean_len = mean(self.lenDist)
             sd_len = stdev(self.lenDist)
@@ -119,7 +122,7 @@ def read_msa(msa_fa_f:str)->dict:
         msa_seqs: (dict) Dictionary with the aligned sequences.
     '''
     msa_seqs = dict()
-    with open(msa_fa_f) as fh:
+    with open(msa_fa_f, encoding='utf-8') as fh:
         name = None
         seq = ''
         for line in fh:
@@ -207,9 +210,9 @@ def split_msa(sco:str, aligned_sequences:dict, outgroup_id:str, out_dir:str, fa_
     '''
     # Prepare the two outputs
     ingroup_msa  = f'{out_dir}/{sco}_ingroup.msa.fa'
-    ingroup_fh    = open(ingroup_msa, 'w')
+    ingroup_fh    = open(ingroup_msa, 'w', encoding='utf-8')
     outgroup_msa = f'{out_dir}/{sco}_outgroup.msa.fa'
-    outgroup_fh   = open(outgroup_msa, 'w')
+    outgroup_fh   = open(outgroup_msa, 'w', encoding='utf-8')
     # Parse the MSA sequences, identify the outgroup, and
     # save to the corresponding file.
     # Some checks:
@@ -257,18 +260,37 @@ def process_ortholog(sco:str, outgroup_id:str,
         result: (mkTestResults) Object of the mkTest script results.
     '''
     result = mkTestResults(sco)
-    # 1. Read the corresponding MSA
-    msa_fa = f'{msa_dir}/{sco}.fa'
+    # 1. First, find the correct input files to read.
+    fa_found = False
+    msa_fa_f = ''
+    # Check for different possible suffixes.
+    suffixes = ['.fa',
+                '.fasta.',
+                '_NT.fa',
+                '.cds.fa',
+                '.CDS.fa',
+                '_MSA.fa',
+                '.msa.fa']
+    for suffix in suffixes:
+        fa = f'{msa_dir}/{sco}{suffix}'
+        if os.path.exists(fa):
+            msa_fa_f = fa
+            fa_found = True
+        if fa_found:
+            break
     # Some orthologs have no valid MSA, skip them.
-    if not os.path.exists(msa_fa):
+    if not fa_found:
         result.passed = False
         result.whyfail = 'noMSA'
         return result
-    aligned_seq = read_msa(msa_fa)
-    # 2. Inspect the sequence:
+
+    # 2. Once the correct file has been found, read it.
+    aligned_seq = read_msa(msa_fa_f)
+
+    # 3. Inspect the sequence:
     #    Get the target gene and alignment length.
     #    Look for frameshifts and other issues
-    # For the lengths of the aligned seqs
+    #    For the lengths of the aligned seqs
     result.lenDist = [ 0 for _ in range(len(aligned_seq)) ]
     for i, seq_id in enumerate(aligned_seq):
         sequence = aligned_seq[seq_id]
@@ -281,7 +303,7 @@ def process_ortholog(sco:str, outgroup_id:str,
                 result.fshifts = True
         # If not the outgroup, extract length and
         # gene information
-        if outgroup_id not in aligned_seq:
+        if outgroup_id not in seq_id:
             result.alnLen = len(sequence)
             # Note: this works for our default input, but
             # will likely fail for other cases.
@@ -295,9 +317,9 @@ def process_ortholog(sco:str, outgroup_id:str,
         result.passed = False
         result.whyfail = 'frameshifts'
         return result
-    # 3. Split the MSAs
+    # 4. Split the MSAs
     ingroup_msa, outgroup_msa = split_msa(sco, aligned_seq, outgroup_id, out_dir)
-    # 4. Run the mkTest.rb command.
+    # 5. Run the mkTest.rb command.
     result = run_mktest_cmd(result, ingroup_msa, outgroup_msa, exe_dir)
     return result
 
@@ -323,7 +345,7 @@ def process_all_orthologs(scos:list, outgroup_id:str,
     if not os.path.exists(split_dir):
         os.mkdir(split_dir)
     # Process all the data
-    with open(f'{out_dir}/rb_mkTest_out.tsv', 'w') as fh:
+    with open(f'{out_dir}/rb_mkTest_out.tsv', 'w', encoding='utf-8') as fh:
         header = ['orthologID', 'focalGene', 'alnLen',
                   'avgAlnLenNoGaps', 'sdAlnLenNoGaps',
                   'aaFix', 'aaPoly', 'silFix', 'silPoly',
